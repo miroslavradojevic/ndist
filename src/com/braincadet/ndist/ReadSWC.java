@@ -80,7 +80,9 @@ public class ReadSWC {
 
                     valsLn[6] = Integer.valueOf(readLn[PARENT].trim()).intValue();  // mother idx
 
-                    nodes_load.add(valsLn);
+                    // add the line if the id of the node was positive
+                    if (valsLn[0]>=0) nodes_load.add(valsLn);
+                    else IJ.log("warning: node ID was negative -> skipping");
 
                     maxID = (valsLn[0]>maxID)? (int) valsLn[0] : maxID;
 
@@ -111,54 +113,67 @@ public class ReadSWC {
 //        IJ.log(nodes_load.size() + " lines"); // analyze
 //        IJ.log("maxID= " + maxID);
 
+        // check whether there were any nodes
+
         // initialize all with null, ID will correspond to the index in nnodes list
-        nnodes = new ArrayList<Node>(maxID + 1); // zeroth is dummy one (so that indexing can work with IDs) hence there is one more allocated
-        for (int i = 0; i <= maxID; i++) nnodes.add(i, null);
+        if (nodes_load.size()>0) {
 
-        for (int i = 0; i < nodes_load.size(); i++) { // fill the nnodes list elements only
+            nnodes = new ArrayList<Node>(maxID + 1);
 
-            int     currId      = Math.round(nodes_load.get(i)[ID]);
-            int     currType    = Math.round(nodes_load.get(i)[TYPE]);
+            for (int i = 0; i <= maxID; i++) nnodes.add(i, null);
 
-            float   currX       = nodes_load.get(i)[XCOORD];
-            float   currY       = nodes_load.get(i)[YCOORD];
-            float   currZ       = nodes_load.get(i)[ZCOORD];
+            for (int i = 0; i < nodes_load.size(); i++) { // fill the nnodes list elements only
 
-            float   currR       = nodes_load.get(i)[RADIUS];
+                int     currId      = Math.round(nodes_load.get(i)[ID]);
+                int     currType    = Math.round(nodes_load.get(i)[TYPE]);
 
-            int     prevId      = Math.round(nodes_load.get(i)[PARENT]);
+                float   currX       = nodes_load.get(i)[XCOORD];
+                float   currY       = nodes_load.get(i)[YCOORD];
+                float   currZ       = nodes_load.get(i)[ZCOORD];
 
-            if (nnodes.get(currId)==null) { // add the node
-                nnodes.set(currId, new Node(currX, currY, currZ, currR, currType));
-            }
-            else {
+                float   currR       = nodes_load.get(i)[RADIUS];
+
+                int     prevId      = Math.round(nodes_load.get(i)[PARENT]);
+
+                if (nnodes.get(currId)==null) { // add the node
+                    nnodes.set(currId, new Node(currX, currY, currZ, currR, currType));
+                }
+                else {
 //                IJ.log("double node at " + currId + " with neighbours " + nnodes.get(currId).nbr.size()+ ":"); // doubling the same node (illegal, can happen)
-                // assume that we will not read the new coordinates again but the neighbours only
+                    // assume that we will not read the new coordinates again but the neighbours only
 //                nnodes.get(currId).nbr.add(prevId);
+                }
+
             }
 
-        }
+            // once the nodes are added add bi-directional connections
+            for (int i = 0; i < nodes_load.size(); i++) {
 
-        // once the nodes are added add bi-directional connections
-        for (int i = 0; i < nodes_load.size(); i++) {
-
-            int     currId      = Math.round(nodes_load.get(i)[ID]);
-            int     prevId      = Math.round(nodes_load.get(i)[PARENT]);
+                int     currId      = Math.round(nodes_load.get(i)[ID]);
+                int     prevId      = Math.round(nodes_load.get(i)[PARENT]);
 
 //            System.out.println(currId + " -- " + prevId + " --- " + nnodes.size());
 //            if (nnodes.get(currId)==null) System.out.println("it was null");
 
-            if (prevId!=-1 && prevId!=currId) {
-                nnodes.get(currId).nbr.add(prevId);
-                nnodes.get(prevId).nbr.add(currId);
+                if (prevId!=-1 && prevId!=currId) {
+                    nnodes.get(currId).nbr.add(prevId);
+                    nnodes.get(prevId).nbr.add(currId);
+                }
+
             }
+
+            // remove duplicate neighbouring links
+            removeduplicate(nnodes);
+
+        }
+        else {
+
+            nnodes = new ArrayList<Node>(); // size==0
+            // don't add any nodes
 
         }
 
-        // remove duplicate neighbouring links
-        removeduplicate(nnodes);
-
-        if (doTree) bfs(nnodes, trees);
+        if (doTree && nnodes.size()>0) bfs(nnodes, trees);
 
     }
 

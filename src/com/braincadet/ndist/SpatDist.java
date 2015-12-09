@@ -48,7 +48,13 @@ public class SpatDist implements PlugIn {
         ReadSWC swc1 = new ReadSWC(swca, false);
         ReadSWC swc2 = new ReadSWC(swcb, false);
 
-        IJ.showStatus("calculating...");
+        if (swc1.nnodes.size()==0 || swc2.nnodes.size()==0) {
+            // comparison with empty reconstruction
+            IJ.log("Stop: comparison with empty reconstruction.");
+            return;
+        }
+
+        IJ.showStatus("calculating spatial distance...");
 
         long t1 = System.currentTimeMillis();
         float[] meas = swc1.spatdist(swc2, dst);
@@ -62,6 +68,7 @@ public class SpatDist implements PlugIn {
         btag = btag.substring(btag.lastIndexOf(File.separator)+1)+"_"+getFileName(swcb);
         String eval = String.format("%15s,%20s,%10.3f,%10.3f,%10.3f", atag, btag, meas[0], meas[1], meas[2]);
 
+        // append to the evaluation file
         String  outf = new File(swca).getParent() + File.separator + "eval.csv"; // output (file append) will be stored in the same folder as the chosen swc file
         File f = new File(outf);
         if (!f.exists()) {
@@ -78,6 +85,7 @@ public class SpatDist implements PlugIn {
             logWriter.close();
         } catch (IOException e) {}
 
+        // standard output
         IJ.log("");
         IJ.log(legend);
         IJ.log(eval);
