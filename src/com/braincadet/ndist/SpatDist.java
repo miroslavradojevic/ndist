@@ -48,28 +48,38 @@ public class SpatDist implements PlugIn {
         ReadSWC swc1 = new ReadSWC(swca, false);
         ReadSWC swc2 = new ReadSWC(swcb, false);
 
-        if (swc1.nnodes.size()==0 || swc2.nnodes.size()==0) {
-            // comparison with empty reconstruction
-            IJ.log("Stop: comparison with empty reconstruction.");
+        if (swc1.nnodes.size()==0) {
+            IJ.log("- - - - - - ");
+            IJ.log("Empty SWC:");
+            IJ.log(swca);
+            IJ.log("- - - - - - ");
+            return;
+        }
+        if (swc2.nnodes.size()==0) {
+            IJ.log("- - - - - - ");
+            IJ.log("Empty SWC:");
+            IJ.log(swcb);
+            IJ.log("- - - - - - ");
             return;
         }
 
         IJ.showStatus("calculating spatial distance...");
 
         long t1 = System.currentTimeMillis();
-        float[] meas = swc1.spatdist(swc2, dst);
+        float[] meas = swc1.spatdist(swc2, dst); // 6 dim vector output
         long t2 = System.currentTimeMillis();
 
         IJ.showStatus("done. " + IJ.d2s((t2-t1)/1000f,2)+" sec.");
 
-        String legend = String.format("%15s,%20s,%10s,%10s,%10s", "NAME", "TAG", "SD", "SSD", "percSSD");
+        String legend = String.format("%15s,%20s,%10s,%10s,%10s,%10s,%10s,%10s", "NAME", "TAG", "SD", "SSD", "percSSD", "P", "R", "F");
         String atag = getFileName(swca);
         String btag = new File(swcb).getParent();
         btag = btag.substring(btag.lastIndexOf(File.separator)+1)+"_"+getFileName(swcb);
-        String eval = String.format("%15s,%20s,%10.3f,%10.3f,%10.3f", atag, btag, meas[0], meas[1], meas[2]);
+        String eval = String.format("%15s,%20s,%10.3f,%10.3f,%10.3f,%10.3f,%10.3f,%10.3f", atag, btag, meas[0], meas[1], meas[2], meas[3], meas[4], meas[5]);
 
         // append to the evaluation file
         String  outf = new File(swca).getParent() + File.separator + "eval.csv"; // output (file append) will be stored in the same folder as the chosen swc file
+
         File f = new File(outf);
         if (!f.exists()) {
             try {
@@ -86,10 +96,11 @@ public class SpatDist implements PlugIn {
         } catch (IOException e) {}
 
         // standard output
-        IJ.log("");
+        IJ.log(" --- ");
         IJ.log(legend);
         IJ.log(eval);
         IJ.log(outf);
+        IJ.log(" --- ");
 
     }
 

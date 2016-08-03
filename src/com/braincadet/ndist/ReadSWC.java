@@ -14,8 +14,8 @@ public class ReadSWC {
 
     // node ids need to be unique in swc format, id's should not repeat
     // (nevertheless, ids can repeat or be missing)
-    // input is read as the list of linked nodes (com.braincadet.ndist.Node class)
-    // com.braincadet.ndist.Node contains the sphere (x,y,z,r) + the link towards the neighbouring node (index from the node list)
+    // input is read as the list of linked nodes (Node class)
+    // Node contains the sphere (x,y,z,r) + the link towards the neighbouring node (index from the node list)
 
     // new list with nodes
     public ArrayList<Node> nnodes = new ArrayList<Node>();
@@ -353,7 +353,7 @@ public class ReadSWC {
         // threaded implementation of neuron distance calculation
         SpatDistCalculator.load(nnodes, compswc.nnodes, dst);
         int total = SpatDistCalculator.nlistA.size();
-        int CPU_NR = Runtime.getRuntime().availableProcessors() + 0; //IJ.log(CPU_NR+"");
+        int CPU_NR = Runtime.getRuntime().availableProcessors() + 0;
 
         SpatDistCalculator jobs[] = new SpatDistCalculator[CPU_NR];
 
@@ -390,7 +390,7 @@ class BfsQueue<E> {
     public int size() {
         return list.size();
     }
-//    public void addItems(com.braincadet.ndist.BfsQueue<? extends E> q) {
+//    public void addItems(BfsQueue<? extends E> q) {
 //        while (q.hasItems())
 //            list.addLast(q.dequeue());
 //    }
