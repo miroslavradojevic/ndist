@@ -5,12 +5,11 @@ import ij.IJ;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-/**
- * Created by miroslav on 12/5/15.
- */
+/**  */
 public class SpatDistCalculator extends Thread {
 
     private int begN, endN;
+    private static boolean swtch = false; // assume second argument is gold-standard (nlistB used for the recall)
 
     public static ArrayList<Node> nlistA = new ArrayList<Node>();
     public static ArrayList<Node> nlistB = new ArrayList<Node>();
@@ -50,6 +49,8 @@ public class SpatDistCalculator extends Thread {
             ArrayList<Node> temp = nlistA;
             nlistA = nlistB;
             nlistB = temp;
+
+            swtch = true; // (nlistA used for the recall)
         }
 
 //        IJ.log(nlistA.size() + " --- " + nlistB.size());
@@ -115,17 +116,33 @@ public class SpatDistCalculator extends Thread {
         // return average of dAB array with mins. (closest dist of node in A towards B)
         float   sd1 = 0, ssd1 = 0;
         int     cnt1 = 0;
-        float   maxd = Float.NEGATIVE_INFINITY;
+//        float   maxd = Float.NEGATIVE_INFINITY;
+
+        int tp_rec = 0;
+        int tp_gs = 0;
+        int fp = 0;
+        int fn = 0;
 
         for (int i = 0; i < dAB.length; i++) {
 
             d = (float) Math.sqrt(dAB[i]);
 
-            if (d>maxd) maxd = d;
+//            if (d>maxd) maxd = d;
 
             sd1 += d;
 
-            if (d>=dst) { ssd1 += d; cnt1++;}
+            if (d>=dst) {
+                ssd1 += d;
+                cnt1++;
+            }
+            else { // it is true positive
+                if (swtch) { // A is gs, B is rec (goin through gs)
+                    tp_gs++;
+                }
+                else { // A is rec, B is gs (goin through rec)
+                    tp_rec++;
+                }
+            }
 
         }
 
@@ -136,16 +153,27 @@ public class SpatDistCalculator extends Thread {
 
             d = (float) Math.sqrt(dBA[i]);
 
-            if (d>maxd) maxd = d;
+//            if (d>maxd) maxd = d;
 
             sd2 += d;
 
-            if (d>=dst) { ssd2 += d; cnt2++;}
+            if (d>=dst) {
+                ssd2 += d;
+                cnt2++;
+            }
+            else { // it is true positive
+                if (swtch) {
+                    tp_rec++;
+                }
+                else {
+                    tp_gs++;
+                }
+            }
 
         }
 
         float sd        = .5f*(sd1/dAB.length)+.5f*(sd2/dBA.length);
-        float ssd       = .5f*(ssd1/cnt1)+.5f*(ssd2/cnt2);
+        float ssd       = ((cnt1>0)? (.5f*(ssd1/cnt1)) : 0) + ((cnt2>0)? (.5f*(ssd2/cnt2)) : 0);
         float percssd   = .5f*((float)cnt1/dAB.length)+.5f*((float)cnt2/dBA.length);
 
         // alternative average computation
@@ -153,7 +181,27 @@ public class SpatDistCalculator extends Thread {
 //        float ssd       = (ssd1+ssd2)/(cnt1+cnt2);
 //        float percssd   = (float)(cnt1+cnt2)/(dAB.length+dBA.length);
 
-        return new float[]{sd, ssd, percssd};
+        float precision = (float)tp_rec/((swtch)?dBA.length:dAB.length);
+        float recall    = (float)tp_gs/((swtch)?dAB.length:dBA.length);
+        float fscore    = (precision+recall>Float.MIN_VALUE)? ((2*precision*recall)/(precision+recall)) : 0f;
+
+        // todo add real-valued precision and recall
+        float precision_soft;
+        float recall_soft;
+        float fscore_soft;
+
+
+
+//        if (swtch) {
+//            precision = tp_rec/dBA.length; // B is rec and rec defines precision
+//            recall = tp_gs/dAB.length; // A is gs and gs defines recall
+//        }
+//        else {
+//            precision = tp_rec/dAB.length;
+//            recall = tp_gs/dBA.length;
+//        }
+
+        return new float[]{sd, ssd, percssd, precision, recall, fscore};
 
     }
 

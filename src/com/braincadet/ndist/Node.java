@@ -3,7 +3,7 @@ package com.braincadet.ndist;
 import java.util.ArrayList;
 
 /**
- * com.braincadet.ndist.Node class that stores the basic component of the reconstruction
+ * Node class that stores the basic component of the reconstruction
  * Created by miroslav on 13-3-15.
  * modified by miroslav on 24-8-15.
  */
@@ -25,9 +25,9 @@ public class Node {
     public static int CUSTOM2 = 6;
     public static int UNDEFINED = 7;
 
-    public ArrayList<Integer> nbr; // indexes of the neighbouring nodes from the node list ArrayList<com.braincadet.ndist.Node>
+    public ArrayList<Integer> nbr; // indexes of the neighbouring nodes from the node list ArrayList<Node>
 
-//    public com.braincadet.ndist.Node() {
+//    public Node() {
 //        x = y = z = r = Float.NaN;
 //        type    = NOTHING;
 //        nbr     = null;
