@@ -28,7 +28,7 @@ public class SpatDist implements PlugIn {
 
         if (Macro.getOptions()==null) {
 
-            GenericDialog gd = new GenericDialog("SPATIAL DISTANCE");
+            GenericDialog gd = new GenericDialog("NDIST");
             gd.addStringField("A", 	Prefs.get("com.braincadet.ndist.swca", System.getProperty("user.home")), 60);
             gd.addStringField("B",   Prefs.get("com.braincadet.ndist.swcb", System.getProperty("user.home")), 60);
             gd.addNumericField("S",   Prefs.get("com.braincadet.ndist.dst", 2f), 0, 10, "");
