@@ -1,6 +1,7 @@
 package com.braincadet.ndist;
 
 import ij.IJ;
+import ij.ImagePlus;
 
 import java.io.*;
 import java.util.*;
@@ -39,18 +40,28 @@ public class ReadSWC {
 
     public static int SWC_LINE_LENGTH = 7;
 
+    public boolean isNumeric(String s) {
+        return s.matches("[-+]?\\d*\\.?\\d+");
+    }
+
+    /**
+     * Initialize SWC reader
+     * @param swcpath path to swc file
+     * @param doTree extract trees from the set of connected nodes
+     */
     public ReadSWC(String swcpath, boolean doTree) {
 
         String swcpath1 = new File(swcpath).getAbsolutePath();// path to swc file
         File swcfile = new File(swcpath1);
-        if (!(swcfile.exists()) || !getFileExtension(swcpath1).equals("swc")) return;
+        if (!(swcfile.exists()) || !getFileExtension(swcpath1).equals("swc")) {
+            IJ.log(swcfile+" does not exist!");
+            return;
+        }
 
         ArrayList<float[]> nodes_load = new ArrayList<float[]>(); // 1x7 rows (swc format)
 
         // read the node list of line elements
-        // it's not guaranteed that the node IDs will be compatible with indexing
-        // in sense that the nodes are arranged ascending and all exist and none repeat
-        // read it first all to het the full range if ids would be to know how much to allocate
+        // read it all first to get the full range if node ids
         try { // scan the file
 
             FileInputStream fstream 	= new FileInputStream(swcpath1);
@@ -64,20 +75,26 @@ public class ReadSWC {
                 if(!read_line.trim().startsWith("#")) { // # are comments
 
                     String[] 	readLn = 	read_line.trim().replaceAll("," , ".").split("\\s+");
-
+                    
                     if (readLn.length!=SWC_LINE_LENGTH) continue; // skip the line that did not have enough values
 
                     float[] 	valsLn = 	new float[SWC_LINE_LENGTH]; // x, y, z, mother_index
 
+                    if (!isNumeric(readLn[ID].trim()) ||
+                            !isNumeric(readLn[TYPE].trim()) ||
+                            !isNumeric(readLn[XCOORD].trim()) ||
+                            !isNumeric(readLn[YCOORD].trim()) ||
+                            !isNumeric(readLn[ZCOORD].trim()) ||
+                            !isNumeric(readLn[RADIUS].trim()) ||
+                            !isNumeric(readLn[PARENT].trim())
+                            ) continue; // skip adding if one of the node components is not a number (element will stay null)
+
                     valsLn[0] = Integer.valueOf(readLn[ID].trim()).intValue();      // id
                     valsLn[1] = Integer.valueOf(readLn[TYPE].trim()).intValue();    // type
-
                     valsLn[2] = Float.valueOf(readLn[XCOORD].trim()).floatValue();  // x, y, z
                     valsLn[3] = Float.valueOf(readLn[YCOORD].trim()).floatValue();
                     valsLn[4] = Float.valueOf(readLn[ZCOORD].trim()).floatValue();
-
                     valsLn[5] = Float.valueOf(readLn[RADIUS].trim()).floatValue();  // radius
-
                     valsLn[6] = Integer.valueOf(readLn[PARENT].trim()).intValue();  // mother idx
 
                     // add the line if the id of the node was positive
@@ -110,14 +127,8 @@ public class ReadSWC {
             System.err.println("Error: " + e.getMessage());
         }
 
-//        IJ.log(nodes_load.size() + " lines"); // analyze
-//        IJ.log("maxID= " + maxID);
-
-        // check whether there were any nodes
-
         // initialize all with null, ID will correspond to the index in nnodes list
         if (nodes_load.size()>0) {
-
             nnodes = new ArrayList<Node>(maxID + 1);
 
             for (int i = 0; i <= maxID; i++) nnodes.add(i, null);
@@ -138,11 +149,6 @@ public class ReadSWC {
                 if (nnodes.get(currId)==null) { // add the node
                     nnodes.set(currId, new Node(currX, currY, currZ, currR, currType));
                 }
-                else {
-//                IJ.log("double node at " + currId + " with neighbours " + nnodes.get(currId).nbr.size()+ ":"); // doubling the same node (illegal, can happen)
-                    // assume that we will not read the new coordinates again but the neighbours only
-//                nnodes.get(currId).nbr.add(prevId);
-                }
 
             }
 
@@ -152,12 +158,14 @@ public class ReadSWC {
                 int     currId      = Math.round(nodes_load.get(i)[ID]);
                 int     prevId      = Math.round(nodes_load.get(i)[PARENT]);
 
-//            System.out.println(currId + " -- " + prevId + " --- " + nnodes.size());
-//            if (nnodes.get(currId)==null) System.out.println("it was null");
-
                 if (prevId!=-1 && prevId!=currId) {
-                    nnodes.get(currId).nbr.add(prevId);
-                    nnodes.get(prevId).nbr.add(currId);
+                    if (currId>=0 && currId<nnodes.size() && prevId>=0 && prevId<nnodes.size()) {
+                        // add the link if both were != null
+                        if (nnodes.get(currId) != null && nnodes.get(prevId) != null) {
+                            nnodes.get(currId).nbr.add(prevId);
+                            nnodes.get(prevId).nbr.add(currId);
+                        }
+                    }
                 }
 
             }
@@ -343,17 +351,41 @@ public class ReadSWC {
         return extension.toLowerCase();
     }
 
-    public float[] spatdist(ReadSWC compswc, float dst) {
+    public float[][] spatdist1(ReadSWC compswc, float dst, ImagePlus mask) {
 
-        if (nnodes.size()==0 || compswc.nnodes.size()==0) {
-            IJ.log("empty SWC");
-            return new float[]{Float.NaN, Float.NaN, Float.NaN};
+        if (mask==null)     NdistCalculator.load(nnodes, compswc.nnodes);
+        else                NdistCalculator.load(nnodes, compswc.nnodes, mask);
+
+        int totalA = NdistCalculator.nlistA.size();
+        int totalB = NdistCalculator.nlistB.size();
+
+        int CPU_NR = Runtime.getRuntime().availableProcessors();
+
+        NdistCalculator jobs[] = new NdistCalculator[CPU_NR];
+
+        for (int i = 0; i < jobs.length; i++) {
+            jobs[i] = new NdistCalculator(i * totalA / CPU_NR, (i + 1) * totalA / CPU_NR, i * totalB / CPU_NR, (i + 1) * totalB / CPU_NR);
+            jobs[i].start();
         }
 
-        // threaded implementation of neuron distance calculation
-        SpatDistCalculator.load(nnodes, compswc.nnodes, dst);
+        for (int i = 0; i < jobs.length; i++) {
+            try {
+                jobs[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return NdistCalculator.compute(dst);
+
+    }
+
+    public float[] spatdist(ReadSWC compswc, float dst, ImagePlus mask) {
+
+        if (mask==null) SpatDistCalculator.load(nnodes, compswc.nnodes);        // if there is no soma mask
+        else            SpatDistCalculator.load(nnodes, compswc.nnodes, mask);  // if there is soma mask (those that are 255 are skipped from the evaluation)
         int total = SpatDistCalculator.nlistA.size();
-        int CPU_NR = Runtime.getRuntime().availableProcessors() + 0;
+        int CPU_NR = Runtime.getRuntime().availableProcessors();
 
         SpatDistCalculator jobs[] = new SpatDistCalculator[CPU_NR];
 
