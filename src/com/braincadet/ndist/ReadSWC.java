@@ -10,6 +10,7 @@ import java.util.*;
  * reader class for swc neuron reconstruction file
  * Created by miroslav on 23-10-13.
  * modified by miroslav on 5-12-15.
+ * added bifurcation export on 16-9-18
  */
 public class ReadSWC {
 
@@ -403,6 +404,69 @@ public class ReadSWC {
         }
 
         return SpatDistCalculator.spatdist(dst);
+
+    }
+
+    public void getBifurcations(String outSwcPath){
+
+        ArrayList<Node> bifurcationNodes =  new ArrayList<Node>();
+
+        bifurcationNodes.add(null); // first node is dummy so that indexing starts from 1
+
+        for (int i = 0; i < nnodes.size(); i++) {
+            if (nnodes.get(i) != null) {
+                if (nnodes.get(i).nbr.size() >= 3) {
+                    bifurcationNodes.add(new Node(nnodes.get(i), -1));
+                }
+            }
+        }
+
+        saveNodelist(bifurcationNodes, outSwcPath, -1, "##n,type,x,y,z,radius,parent");
+
+    }
+
+    private void saveNodelist(ArrayList<Node> nX, String SwcName, int type, String SwcHeader) {
+
+        cleanfile(SwcName);
+
+        try {
+
+            PrintWriter logWriter = new PrintWriter(new BufferedWriter(new FileWriter(SwcName, true)));
+
+            logWriter.println(SwcHeader); // add swc header
+
+            for (int i = 0; i < nX.size(); i++) { // nX[0] = null
+
+                if (nX.get(i) == null) continue;
+
+                Node nn = nX.get(i);
+
+                if (true || nn.nbr.size()==0) {
+                    logWriter.println(
+                            IJ.d2s(i, 0)+" "+IJ.d2s((type<0)?nn.type:type, 0)+" "+
+                                    IJ.d2s(nn.x, 4)+" "+
+                                    IJ.d2s(nn.y, 4)+" "+
+                                    IJ.d2s(nn.z, 4)+" "+
+                                    IJ.d2s(nn.r, 3)+" "+"-1");
+                }
+
+            }
+
+            logWriter.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public static void cleanfile(String filepath) {
+
+        try {
+            PrintWriter logWriter = new PrintWriter(filepath);
+            logWriter.print("");
+            logWriter.close();
+        } catch (FileNotFoundException ex) {}
 
     }
 
